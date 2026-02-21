@@ -150,38 +150,58 @@ title = f'Fooocus {fooocus_version.version}'
 if isinstance(args_manager.args.preset, str):
     title += ' ' + args_manager.args.preset
 
-shared.gradio_root = gr.Blocks(title=title).queue()
+# 1. Injeksi CDN TailwindCSS dan Custom CSS Mobile
+tailwind_cdn = '<script src="https://cdn.tailwindcss.com"></script>'
+mobile_css = """
+@media (max-width: 768px) {
+    .gradio-container { padding: 5px !important; }
+    .main_view, .image_gallery, #final_gallery { height: auto !important; min-height: 350px !important; max-height: 50vh !important; }
+}
+"""
+
+# 2. Sisipkan head dan css ke dalam gr.Blocks
+shared.gradio_root = gr.Blocks(title=title, head=tailwind_cdn, css=mobile_css).queue()
 
 with shared.gradio_root:
     currentTask = gr.State(worker.AsyncTask(args=[]))
     inpaint_engine_state = gr.State('empty')
-    with gr.Row():
-        with gr.Column(scale=2):
+    
+    # 3. Gunakan class Tailwind pada elemen Gradio (misal: flex, w-full, gap-4)
+    with gr.Row(elem_classes=['flex', 'flex-col', 'md:flex-row', 'w-full', 'gap-4']):
+        with gr.Column(scale=2, elem_classes=['w-full']):
             with gr.Row():
-                progress_window = grh.Image(label='Preview', show_label=True, visible=False, height=768,
-                                            elem_classes=['main_view'])
+                # Hapus height=768, biarkan auto
+                progress_window = grh.Image(label='Preview', show_label=True, visible=False, 
+                                            elem_classes=['main_view', 'w-full', 'rounded-lg', 'shadow-md'])
                 progress_gallery = gr.Gallery(label='Finished Images', show_label=True, object_fit='contain',
-                                              height=768, visible=False, elem_classes=['main_view', 'image_gallery'])
+                                              visible=False, elem_classes=['main_view', 'image_gallery', 'w-full'])
             progress_html = gr.HTML(value=modules.html.make_progress_html(32, 'Progress 32%'), visible=False,
-                                    elem_id='progress-bar', elem_classes='progress-bar')
-            gallery = gr.Gallery(label='Gallery', show_label=False, object_fit='contain', visible=True, height=768,
-                                 elem_classes=['resizable_area', 'main_view', 'final_gallery', 'image_gallery'],
+                                    elem_id='progress-bar', elem_classes=['progress-bar', 'w-full', 'my-2'])
+            gallery = gr.Gallery(label='Gallery', show_label=False, object_fit='contain', visible=True,
+                                 elem_classes=['resizable_area', 'main_view', 'final_gallery', 'image_gallery', 'w-full', 'rounded-xl', 'border', 'border-gray-200'],
                                  elem_id='final_gallery')
-            with gr.Row():
-                with gr.Column(scale=17):
+            
+            with gr.Row(elem_classes=['flex', 'flex-col', 'md:flex-row', 'items-end', 'gap-2', 'mt-4']):
+                with gr.Column(scale=17, elem_classes=['w-full']):
                     prompt = gr.Textbox(show_label=False, placeholder="Type prompt here or paste parameters.", elem_id='positive_prompt',
-                                        autofocus=True, lines=3)
+                                        autofocus=True, lines=3, elem_classes=['w-full', 'rounded-lg'])
 
                     default_prompt = modules.config.default_prompt
                     if isinstance(default_prompt, str) and default_prompt != '':
                         shared.gradio_root.load(lambda: default_prompt, outputs=prompt)
 
-                with gr.Column(scale=3, min_width=0):
-                    generate_button = gr.Button(label="Generate", value="Generate", elem_classes='type_row', elem_id='generate_button', visible=True)
-                    reset_button = gr.Button(label="Reconnect", value="Reconnect", elem_classes='type_row', elem_id='reset_button', visible=False)
-                    load_parameter_button = gr.Button(label="Load Parameters", value="Load Parameters", elem_classes='type_row', elem_id='load_parameter_button', visible=False)
-                    skip_button = gr.Button(label="Skip", value="Skip", elem_classes='type_row_half', elem_id='skip_button', visible=False)
-                    stop_button = gr.Button(label="Stop", value="Stop", elem_classes='type_row_half', elem_id='stop_button', visible=False)
+                # Hapus min_width=0 agar stack dengan rapi di mobile
+                with gr.Column(scale=3, elem_classes=['w-full', 'flex', 'flex-col', 'gap-2']):
+                    # Terapkan styling Tailwind langsung ke tombol
+                    generate_button = gr.Button(label="Generate", value="Generate", 
+                                                elem_classes=['type_row', 'w-full', 'bg-blue-600', 'hover:bg-blue-700', 'text-white', 'font-bold', 'py-3', 'rounded-lg', 'shadow-lg', 'transition-all'], 
+                                                elem_id='generate_button', visible=True)
+                    reset_button = gr.Button(label="Reconnect", value="Reconnect", elem_classes=['type_row', 'w-full'], elem_id='reset_button', visible=False)
+                    load_parameter_button = gr.Button(label="Load Parameters", value="Load Parameters", elem_classes=['type_row', 'w-full'], elem_id='load_parameter_button', visible=False)
+                    
+                    with gr.Row(elem_classes=['flex', 'w-full', 'gap-2']):
+                        skip_button = gr.Button(label="Skip", value="Skip", elem_classes=['type_row_half', 'w-full', 'bg-yellow-500', 'text-white'], elem_id='skip_button', visible=False)
+                        stop_button = gr.Button(label="Stop", value="Stop", elem_classes=['type_row_half', 'w-full', 'bg-red-500', 'text-white'], elem_id='stop_button', visible=False)
 
                     def stop_clicked(currentTask):
                         import ldm_patched.modules.model_management as model_management
